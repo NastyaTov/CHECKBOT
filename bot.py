@@ -3,21 +3,24 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from datetime import datetime
+from datetime import datetime, timedelta   # ← ИЗМЕНЕНИЕ ТУТ
 
 # ======================
-# НАСТРОЙКИ
+# НАСТРОЙКИ a
 # ======================
 
-BOT_TOKEN = "8505195706:AAF6tJXKuK879TkUytXgvA4dOPWr3WCZY5Y"
+BOT_TOKEN = "8582991541:AAHMhjYaBlEV1LXgEW8paoaxxD31jvR6KzU"
 TELEGRAM_CHAT_ID = -1001943447842  # chat_id группы (бот должен быть админом)
 
 # ======================
 # ЛОГИ
 # ======================
 
+def now_nsk():
+    return datetime.utcnow() + timedelta(hours=7)
+
 def log(msg: str):
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
+    print(f"[{now_nsk().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
 
 # ======================
 # ИНИЦИАЛИЗАЦИЯ
@@ -74,11 +77,11 @@ def inline_status_buttons(user_id: int, message_id: int, current_status="❌ Н�
 @dp.message(Command(commands=["start"]))
 async def start(message: types.Message):
     if message.chat.type != "private":
-        return  # игнорируем группы
+        return
     user_data[message.from_user.id] = {"photos": [], "sent": False}
     log(f"👤 Пользователь {message.from_user.id} нажал /start")
     await message.answer(
-        "👋 Привет! Загрузите фото чеков по одному.\nКогда закончите — нажмите «Отправить».",
+        "👋 Привет! \nЗагрузите фото чеков по одному.\nКогда закончите — нажмите «Отправить».",
         reply_markup=keyboard_no_send()
     )
 
@@ -89,7 +92,7 @@ async def start(message: types.Message):
 @dp.message(lambda message: message.content_type == "photo")
 async def receive_photo(message: types.Message):
     if message.chat.type != "private":
-        return  # игнорируем группы
+        return
     user_id = message.from_user.id
     if user_id not in user_data:
         user_data[user_id] = {"photos": [], "sent": False}
@@ -117,7 +120,7 @@ async def receive_photo(message: types.Message):
 @dp.message(lambda message: message.text == "📨 Отправить")
 async def send_photos_command(message: types.Message):
     if message.chat.type != "private":
-        return  # игнорируем группы
+        return
     user_id = message.from_user.id
     data = user_data.get(user_id)
 
@@ -138,7 +141,7 @@ async def send_photos_command(message: types.Message):
 
         caption_base = (
             f"👤 От: {message.from_user.full_name} (@{message.from_user.username or 'без username'})\n"
-            f"🕒 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+            f"🕒 {now_nsk().strftime('%d.%m.%Y %H:%M')}"
         )
 
         msg = await bot.send_photo(
@@ -150,7 +153,6 @@ async def send_photos_command(message: types.Message):
 
         photo_record["message_id"] = msg.message_id
 
-    # удаляем локальные файлы
     for photo_record in data["photos"]:
         p = photo_record["file_path"]
         if os.path.exists(p):
@@ -166,13 +168,13 @@ async def send_photos_command(message: types.Message):
     )
 
 # ======================
-# Сброс (только в личке)
+# Сброс
 # ======================
 
 @dp.message(lambda message: message.text == "❌ Сбросить")
 async def reset(message: types.Message):
     if message.chat.type != "private":
-        return  # игнорируем группы
+        return
     user_id = message.from_user.id
     user_data[user_id] = {"photos": [], "sent": False}
     log(f"🔄 Пользователь {user_id} сбросил данные")
@@ -223,7 +225,6 @@ async def status_callback(callback: types.CallbackQuery):
 
     await callback.answer(f"Статус изменён на: {new_status}")
 
-    # пересылаем фото автору
     try:
         await bot.forward_message(
             chat_id=user_id,
